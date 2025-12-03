@@ -1,35 +1,31 @@
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.UsersService.Data;
-using MMagnetic.UsersService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// CONFIGURAR CONEXIÓN A SQL SERVER
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
+// 1. Cadena de conexión (ajústala con la tuya real)
+builder.Services.AddDbContext<UsersDbContext>(options =>
+{
+    options.UseSqlServer(builder.Configuration.GetConnectionString("UsersDB"));
+});
 
-// INYECCIÓN DE DEPENDENCIAS
-builder.Services.AddScoped<IUserService, UserService>();
-
-// AGREGAR CONTROLADORES
+// 2. Añadir controladores
 builder.Services.AddControllers();
 
-// ACTIVAR SWAGGER
+// 3. Swagger (Opcional pero recomendado)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Middleware para desarrollo
+// 4. Swagger - solo en desarrollo
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
+// 5. Autorización (lo activaremos cuando construyamos JWT)
 app.UseAuthorization();
 
 app.MapControllers();
