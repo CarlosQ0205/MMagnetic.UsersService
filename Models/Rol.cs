@@ -10,10 +10,10 @@ namespace MMagnetic.UsersService.Models
 
         [Required]
         [MaxLength(100)]
-        public string Nombre { get; set; }
+        public string? Nombre { get; set; }  // ← puede ser nullable durante instanciación
 
         [MaxLength(400)]
-        public string Descripcion { get; set; }
+        public string? Descripcion { get; set; } // ← también puede ser null
 
         public DateTime FechaCreacion { get; set; }
 

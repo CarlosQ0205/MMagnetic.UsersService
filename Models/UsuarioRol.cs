@@ -16,8 +16,8 @@ namespace MMagnetic.UsersService.Models
 
         public DateTime FechaAsignacion { get; set; }
 
-        // Relaciones
-        public Usuario Usuario { get; set; }
-        public Rol Rol { get; set; }
+        // Relaciones (nullable para evitar advertencias del compilador)
+        public Usuario? Usuario { get; set; }
+        public Rol? Rol { get; set; }
     }
 }

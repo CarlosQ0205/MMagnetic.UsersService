@@ -1,8 +1,10 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace MMagnetic.UsersService.Models
 {
+    [Table("RefreshTokens")]
     public class RefreshToken
     {
         [Key]
@@ -11,17 +13,19 @@ namespace MMagnetic.UsersService.Models
         [Required]
         public Guid UsuarioId { get; set; }
 
-        public string Token { get; set; }
+        [Required]
+        public string Token { get; set; } = string.Empty;
+
+        public DateTime FechaCreacion { get; set; } = DateTime.UtcNow;
 
         public DateTime FechaExpiracion { get; set; }
 
-        public DateTime FechaCreacion { get; set; }
-
-        public string IP { get; set; }
+        public string? IP { get; set; }
 
         public bool EsRevocado { get; set; }
 
-        // Relación con Usuario
+        // Relación
+        [ForeignKey("UsuarioId")]
         public Usuario Usuario { get; set; }
     }
 }

@@ -19,6 +19,13 @@ namespace MMagnetic.UsersService.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Necesario para relaciones N:N
+            modelBuilder.Entity<UsuarioRol>()
+                .HasKey(ur => new { ur.UsuarioId, ur.RolId });
+
+            modelBuilder.Entity<RolPermiso>()
+                .HasKey(rp => new { rp.RolId, rp.PermisoId });
+
             base.OnModelCreating(modelBuilder);
         }
     }

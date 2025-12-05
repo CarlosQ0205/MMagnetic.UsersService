@@ -16,8 +16,8 @@ namespace MMagnetic.UsersService.Models
 
         public DateTime FechaAsignacion { get; set; }
 
-        // Relaciones
-        public Rol Rol { get; set; }
-        public Permiso Permiso { get; set; }
+        // Relaciones (nullable para evitar advertencias)
+        public Rol? Rol { get; set; }
+        public Permiso? Permiso { get; set; }
     }
 }
