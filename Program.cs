@@ -3,8 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MMagnetic.UsersService.Data;
 using System.Text;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog for structured logging
+builder.Host.UseSerilog((ctx, lc) => lc
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("logs/log-.txt", rollingInterval: RollingInterval.Day)
+);
+
+// Logging configured via Serilog
 
 // -------------------------------------------------------
 // 1. BASE DE DATOS
@@ -44,7 +56,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 // -------------------------------------------------------
-// 4. SWAGGER CON AUTORIZACIÓN
+// 4. SWAGGER CON AUTORIZACIï¿½N
 // -------------------------------------------------------
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -55,7 +67,7 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
-    // Activar botón de "Authorize" en Swagger
+    // Activar botï¿½n de "Authorize" en Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
         In = Microsoft.OpenApi.Models.ParameterLocation.Header,
@@ -91,8 +103,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Seed and debug logging removed for production readiness.
+
 // -------------------------------------------------------
-// 6. MIDDLEWARES: AUTENTICACIÓN + AUTORIZACIÓN
+// 6. MIDDLEWARES: AUTENTICACIï¿½N + AUTORIZACIï¿½N
 // -------------------------------------------------------
 app.UseAuthentication();
 app.UseAuthorization();
@@ -100,3 +114,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Expose Program class for integration tests
+public partial class Program { }
