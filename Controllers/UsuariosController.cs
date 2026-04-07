@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.UsersService.Data;
 using MMagnetic.UsersService.Models;
@@ -68,6 +69,16 @@ namespace MMagnetic.UsersService.Controllers
         {
             var usuarios = await _context.Usuarios.ToListAsync();
             return Ok(usuarios);
+        }
+
+        // ------------------------------------------------------------
+        // 2.1 Endpoint protegido
+        // ------------------------------------------------------------
+        [Authorize]
+        [HttpGet("protected")]
+        public IActionResult ProtectedEndpoint()
+        {
+            return Ok(new { message = "Acceso autorizado al endpoint protegido" });
         }
 
         // ------------------------------------------------------------

@@ -18,6 +18,19 @@ builder.Host.UseSerilog((ctx, lc) => lc
 
 // Logging configured via Serilog
 
+// CORS: permitir comunicación desde el frontend .NET (Blazor, etc.)
+var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:5173";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalFrontend", policy =>
+    {
+        policy.WithOrigins(frontendUrl)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // -------------------------------------------------------
 // 1. BASE DE DATOS
 // -------------------------------------------------------
@@ -106,8 +119,9 @@ if (app.Environment.IsDevelopment())
 // Seed and debug logging removed for production readiness.
 
 // -------------------------------------------------------
-// 6. MIDDLEWARES: AUTENTICACI�N + AUTORIZACI�N
+// 6. MIDDLEWARES: CORS + AUTENTICACI�N + AUTORIZACI�N
 // -------------------------------------------------------
+app.UseCors("AllowLocalFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

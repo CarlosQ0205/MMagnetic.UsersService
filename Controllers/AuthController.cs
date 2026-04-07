@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MMagnetic.UsersService.Data;
@@ -92,6 +93,38 @@ namespace MMagnetic.UsersService.Controllers
             {
                 Token = GenerarJwt(usuario),
                 RefreshToken = nuevo.Token
+            });
+        }
+
+        // ---------------------------------------------------------------
+        // INFO USUARIO AUTENTICADO
+        // ---------------------------------------------------------------
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<IActionResult> Me()
+        {
+            var userIdClaim = User.FindFirst("usuarioId")?.Value;
+            if (userIdClaim == null)
+                return Unauthorized();
+
+            if (!Guid.TryParse(userIdClaim, out var usuarioId))
+                return Unauthorized();
+
+            var usuario = await _context.Usuarios.FindAsync(usuarioId);
+            if (usuario == null)
+                return NotFound();
+
+            return Ok(new
+            {
+                usuario.UsuarioId,
+                usuario.TipoDocumento,
+                usuario.NumeroDocumento,
+                usuario.PrimerNombre,
+                usuario.SegundoNombre,
+                usuario.PrimerApellido,
+                usuario.SegundoApellido,
+                usuario.CorreoElectronico,
+                usuario.Telefono
             });
         }
 
