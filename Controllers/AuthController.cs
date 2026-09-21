@@ -40,17 +40,26 @@ namespace MMagnetic.UsersService.Controllers
                 return Unauthorized("Usuario no encontrado.");
 
             // Verificar contraseña con BCrypt
+            if (!usuario.EsActivo)
+                return Unauthorized("Usuario inactivo.");
+
             if (!BCrypt.Net.BCrypt.Verify(request.Password + usuario.Salt, usuario.PasswordHash))
                 return Unauthorized("Contraseña incorrecta.");
 
             usuario.FechaUltimoAcceso = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            string jwt = GenerarJwt(usuario);
+            string jwt = await GenerarJwt(usuario);
             var refresh = CrearRefreshToken(usuario.UsuarioId);
 
             await _context.RefreshTokens.AddAsync(refresh);
             await _context.SaveChangesAsync();
+
+            var roles = await _context.UsuariosRoles
+                .Where(ur => ur.UsuarioId == usuario.UsuarioId)
+                .Include(ur => ur.Rol)
+                .Select(ur => ur.Rol!.Nombre)
+                .ToListAsync();
 
             return Ok(new
             {
@@ -60,7 +69,8 @@ namespace MMagnetic.UsersService.Controllers
                 {
                     usuario.UsuarioId,
                     Nombre = usuario.PrimerNombre + " " + usuario.PrimerApellido,
-                    usuario.CorreoElectronico
+                    usuario.CorreoElectronico,
+                    Roles = roles
                 }
             });
         }
@@ -91,7 +101,7 @@ namespace MMagnetic.UsersService.Controllers
 
             return Ok(new
             {
-                Token = GenerarJwt(usuario),
+                Token = await GenerarJwt(usuario),
                 RefreshToken = nuevo.Token
             });
         }
@@ -114,6 +124,12 @@ namespace MMagnetic.UsersService.Controllers
             if (usuario == null)
                 return NotFound();
 
+            var roles = await _context.UsuariosRoles
+                .Where(ur => ur.UsuarioId == usuario.UsuarioId)
+                .Include(ur => ur.Rol)
+                .Select(ur => ur.Rol!.Nombre)
+                .ToListAsync();
+
             return Ok(new
             {
                 usuario.UsuarioId,
@@ -124,7 +140,8 @@ namespace MMagnetic.UsersService.Controllers
                 usuario.PrimerApellido,
                 usuario.SegundoApellido,
                 usuario.CorreoElectronico,
-                usuario.Telefono
+                usuario.Telefono,
+                Roles = roles
             });
         }
 
@@ -132,7 +149,7 @@ namespace MMagnetic.UsersService.Controllers
         // MÉTODOS PRIVADOS
         // ---------------------------------------------------------------
 
-        private string GenerarJwt(Usuario usuario)
+        private async Task<string> GenerarJwt(Usuario usuario)
         {
             var secreto = _config["Jwt:Secreto"]
                 ?? throw new Exception("Error: falta Jwt:Secreto en appsettings.json");
@@ -147,15 +164,28 @@ namespace MMagnetic.UsersService.Controllers
             var claims = new[]
             {
         new Claim("usuarioId", usuario.UsuarioId.ToString()),
-        new Claim("documento", usuario.NumeroDocumento),
+        new Claim("documento", usuario.NumeroDocumento ?? ""),
         new Claim("correo", usuario.CorreoElectronico ?? ""),
-        new Claim("nombre", usuario.PrimerNombre)
+        new Claim("nombre", usuario.PrimerNombre ?? "")
     };
+
+            // Agregar roles del usuario al JWT
+            var roles = await _context.UsuariosRoles
+                .Where(ur => ur.UsuarioId == usuario.UsuarioId)
+                .Include(ur => ur.Rol)
+                .Select(ur => ur.Rol!.Nombre)
+                .ToListAsync();
+
+            var claimsConRoles = claims.ToList();
+            foreach (var rol in roles)
+            {
+                claimsConRoles.Add(new Claim(ClaimTypes.Role, rol ?? ""));
+            }
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Emisor"],
                 audience: _config["Jwt:Audiencia"],
-                claims: claims,
+                claims: claimsConRoles,
                 expires: DateTime.UtcNow.AddMinutes(expiracion),
                 signingCredentials: new SigningCredentials(
                     new SymmetricSecurityKey(key),
