@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MMagnetic.ExogenaService.Data;
+using MMagnetic.ExogenaService.Services.CargaMasiva;
+using MMagnetic.ExogenaService.Services.Clientes;
 using MMagnetic.ExogenaService.Services.Formato1019;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -10,6 +12,21 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddControllers();
+
+// -------------------------------------------------------
+// CORS: permitir comunicación desde el frontend (mismo esquema que UsersService).
+// -------------------------------------------------------
+var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:5173";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalFrontend", policy =>
+    {
+        policy.WithOrigins(frontendUrl)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
 
 // -------------------------------------------------------
 // JWT: valida los tokens emitidos por MMagnetic.UsersService (misma clave,
@@ -57,6 +74,15 @@ builder.Services.AddScoped<IFormato1019EnsambladorService, Formato1019Ensamblado
 builder.Services.AddScoped<IFormato1019ClasificadorService, Formato1019ClasificadorService>();
 builder.Services.AddScoped<IFormato1019ExportService, Formato1019ExportService>();
 
+// -------------------------------------------------------
+// Carga de datos: Clientes, Cotitulares, Datos_Financieros (manual y masiva).
+// -------------------------------------------------------
+builder.Services.AddScoped<IArchivoTabularReader, ArchivoTabularReader>();
+builder.Services.AddScoped<IResolutorCatalogoDianService, ResolutorCatalogoDianService>();
+builder.Services.AddScoped<IClienteService, ClienteService>();
+builder.Services.AddScoped<ICotitularService, CotitularService>();
+builder.Services.AddScoped<IDatoFinancieroService, DatoFinancieroService>();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -95,6 +121,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowLocalFrontend");
 
 app.UseAuthentication();
 app.UseAuthorization();
