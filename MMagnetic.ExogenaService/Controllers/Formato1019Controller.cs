@@ -14,17 +14,20 @@ public class Formato1019Controller : ControllerBase
 {
     private readonly IFormato1019ClasificadorService _clasificador;
     private readonly IFormato1019ExportService _exportador;
+    private readonly IFormato1019ErrorExportService _exportadorErrores;
     private readonly FormatosDbContext _formatos;
     private readonly ClientesDbContext _clientes;
 
     public Formato1019Controller(
         IFormato1019ClasificadorService clasificador,
         IFormato1019ExportService exportador,
+        IFormato1019ErrorExportService exportadorErrores,
         FormatosDbContext formatos,
         ClientesDbContext clientes)
     {
         _clasificador = clasificador;
         _exportador = exportador;
+        _exportadorErrores = exportadorErrores;
         _formatos = formatos;
         _clientes = clientes;
     }
@@ -71,6 +74,21 @@ public class Formato1019Controller : ControllerBase
             e.FechaError)).ToList();
 
         return Ok(resultado);
+    }
+
+    /// <summary>
+    /// Descarga en .xlsx la línea completa (no solo el dato puntual) de cada cliente/cuenta
+    /// que no pasó la validación de un período, con sus errores, lista para corregir y
+    /// volver a subir por los mismos endpoints de carga masiva.
+    /// </summary>
+    [HttpGet("errores/{periodoAno:int}/exportar")]
+    public async Task<IActionResult> ExportarErrores(int periodoAno, CancellationToken cancellationToken)
+    {
+        var contenido = await _exportadorErrores.ExportarErroresAsync(periodoAno, cancellationToken);
+        return File(
+            contenido,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"errores_formato1019_{periodoAno}.xlsx");
     }
 
     /// <summary>Registros ya validados y listos para exportar de un período.</summary>

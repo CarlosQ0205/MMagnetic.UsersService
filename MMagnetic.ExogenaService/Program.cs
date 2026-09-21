@@ -73,6 +73,7 @@ builder.Services.AddScoped<IHomologadorDianService, HomologadorDianService>();
 builder.Services.AddScoped<IFormato1019EnsambladorService, Formato1019EnsambladorService>();
 builder.Services.AddScoped<IFormato1019ClasificadorService, Formato1019ClasificadorService>();
 builder.Services.AddScoped<IFormato1019ExportService, Formato1019ExportService>();
+builder.Services.AddScoped<IFormato1019ErrorExportService, Formato1019ErrorExportService>();
 
 // -------------------------------------------------------
 // Carga de datos: Clientes, Cotitulares, Datos_Financieros (manual y masiva).
