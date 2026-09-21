@@ -11,15 +11,18 @@ namespace MMagnetic.ExogenaService.Controllers;
 public class Formato1019Controller : ControllerBase
 {
     private readonly IFormato1019ClasificadorService _clasificador;
+    private readonly IFormato1019ExportService _exportador;
     private readonly FormatosDbContext _formatos;
     private readonly ClientesDbContext _clientes;
 
     public Formato1019Controller(
         IFormato1019ClasificadorService clasificador,
+        IFormato1019ExportService exportador,
         FormatosDbContext formatos,
         ClientesDbContext clientes)
     {
         _clasificador = clasificador;
+        _exportador = exportador;
         _formatos = formatos;
         _clientes = clientes;
     }
@@ -79,5 +82,27 @@ public class Formato1019Controller : ControllerBase
             .ToListAsync(cancellationToken);
 
         return Ok(registros);
+    }
+
+    /// <summary>
+    /// Genera el archivo XML final para la DIAN a partir de F_1019_Definitivo. Corre una
+    /// validación completa del lote antes de generarlo (incluida la llave única entre
+    /// registros de distintos clientes, que no se valida durante la clasificación).
+    /// </summary>
+    [HttpGet("exportar/{periodoAno:int}")]
+    public async Task<IActionResult> Exportar(
+        int periodoAno,
+        [FromQuery] int numEnvio,
+        [FromQuery] int codCpt,
+        [FromQuery] DateTime fecInicial,
+        [FromQuery] DateTime fecFinal,
+        CancellationToken cancellationToken)
+    {
+        var resultado = await _exportador.GenerarXmlAsync(periodoAno, numEnvio, codCpt, fecInicial, fecFinal, cancellationToken);
+
+        if (!resultado.Exitoso)
+            return BadRequest(resultado.Errores);
+
+        return File(resultado.ContenidoXml!, "application/xml", resultado.NombreArchivo);
     }
 }

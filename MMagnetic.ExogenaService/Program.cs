@@ -27,6 +27,7 @@ builder.Services.AddScoped<IFormato1019Validator, Formato1019Validator>();
 builder.Services.AddScoped<IHomologadorDianService, HomologadorDianService>();
 builder.Services.AddScoped<IFormato1019EnsambladorService, Formato1019EnsambladorService>();
 builder.Services.AddScoped<IFormato1019ClasificadorService, Formato1019ClasificadorService>();
+builder.Services.AddScoped<IFormato1019ExportService, Formato1019ExportService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
