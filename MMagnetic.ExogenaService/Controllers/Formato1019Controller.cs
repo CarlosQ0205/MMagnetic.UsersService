@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.ExogenaService.Data;
@@ -8,6 +9,7 @@ namespace MMagnetic.ExogenaService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = "Admin")]
 public class Formato1019Controller : ControllerBase
 {
     private readonly IFormato1019ClasificadorService _clasificador;
