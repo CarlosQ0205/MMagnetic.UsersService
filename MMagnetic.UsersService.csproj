@@ -28,6 +28,12 @@
 
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
+    <!-- MMagnetic.ExogenaService vive como carpeta hermana dentro de este mismo repo
+         (monorepo); sin este Remove, el glob por defecto de los proyectos SDK-style
+         (**/*.cs) compilaría también sus archivos como si fueran de UsersService. -->
+    <Compile Remove="MMagnetic.ExogenaService\**\*.cs" />
+    <Content Remove="MMagnetic.ExogenaService\**\*" />
+    <None Remove="MMagnetic.ExogenaService\**\*" />
   </ItemGroup>
 
 </Project>
