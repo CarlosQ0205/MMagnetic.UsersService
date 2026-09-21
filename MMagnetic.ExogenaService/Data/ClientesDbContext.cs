@@ -28,12 +28,30 @@ public class ClientesDbContext : DbContext
         {
             e.ToTable("Cotitulares");
             e.HasKey(c => c.CotitularId);
+            e.Property(c => c.Participacion).HasPrecision(5, 2); // decimal(5,2) en la tabla
         });
 
         modelBuilder.Entity<DatoFinanciero>(e =>
         {
             e.ToTable("Datos_Financieros");
             e.HasKey(d => d.DatoFinancieroId);
+
+            // Precisión exacta según la definición original de la tabla y la Migración 001.
+            e.Property(d => d.Saldo).HasPrecision(18, 2);
+            e.Property(d => d.IngresosAnuales).HasPrecision(18, 2);
+            e.Property(d => d.EgresosAnuales).HasPrecision(18, 2);
+            e.Property(d => d.Activos).HasPrecision(18, 2);
+            e.Property(d => d.Pasivos).HasPrecision(18, 2);
+            e.Property(d => d.Patrimonio).HasPrecision(18, 2);
+            e.Property(d => d.PromedioSaldoFinal).HasPrecision(29, 2);
+            e.Property(d => d.MedianaSaldoDiario).HasPrecision(29, 2);
+            e.Property(d => d.SaldoMaximo).HasPrecision(29, 2);
+            e.Property(d => d.SaldoMinimo).HasPrecision(29, 2);
+            e.Property(d => d.ValorMovCredito).HasPrecision(20, 0);
+            e.Property(d => d.PromedioMovCredito).HasPrecision(20, 0);
+            e.Property(d => d.MedianaMovCredito).HasPrecision(20, 0);
+            e.Property(d => d.ValorMovDebito).HasPrecision(20, 0);
+            e.Property(d => d.PromedioMovDebito).HasPrecision(20, 0);
         });
     }
 }

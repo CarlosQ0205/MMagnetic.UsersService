@@ -20,6 +20,7 @@ public class FormatosDbContext : DbContext
         {
             e.ToTable("Formato_1019");
             e.HasKey(f => f.Formato1019Id);
+            e.Property(f => f.Valor).HasPrecision(18, 2); // coincide con [Valor] decimal(18,2) de la tabla
         });
 
         modelBuilder.Entity<FormatoError>(e =>
@@ -32,6 +33,7 @@ public class FormatosDbContext : DbContext
         {
             e.ToTable("F_1019_Definitivo");
             e.HasKey(f => f.Formato1019DefinitivoId);
+            e.Property(f => f.Valor).HasPrecision(18, 2);
         });
     }
 }
