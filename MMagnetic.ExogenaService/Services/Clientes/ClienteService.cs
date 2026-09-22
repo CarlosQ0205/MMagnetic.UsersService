@@ -76,6 +76,20 @@ public class ClienteService : IClienteService
         return ResultadoOperacion<Cliente>.Ok(cliente);
     }
 
+    public async Task<ResultadoOperacion<Cliente>> CrearOActualizarPorDocumentoAsync(ClienteDto dto, CancellationToken cancellationToken = default)
+    {
+        Cliente? existente = null;
+        if (!string.IsNullOrWhiteSpace(dto.TipoDocumento) && !string.IsNullOrWhiteSpace(dto.NumeroDocumento))
+        {
+            existente = await _clientes.Clientes.FirstOrDefaultAsync(
+                c => c.TipoDocumento == dto.TipoDocumento && c.NumeroDocumento == dto.NumeroDocumento, cancellationToken);
+        }
+
+        return existente is not null
+            ? await ActualizarAsync(existente.ClienteId, dto, cancellationToken)
+            : await CrearAsync(dto, cancellationToken);
+    }
+
     public async Task<bool> DesactivarAsync(Guid clienteId, CancellationToken cancellationToken = default)
     {
         var cliente = await _clientes.Clientes.FirstOrDefaultAsync(c => c.ClienteId == clienteId, cancellationToken);

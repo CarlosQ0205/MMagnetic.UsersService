@@ -1,29 +1,11 @@
 using ClosedXML.Excel;
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.ExogenaService.Data;
-using MMagnetic.ExogenaService.Models.Clientes;
 
 namespace MMagnetic.ExogenaService.Services.Formato1019;
 
 public class Formato1019ErrorExportService : IFormato1019ErrorExportService
 {
-    // Códigos de Formato1019Validator que corresponden a un campo de Cliente (ver
-    // Formato1019EnsambladorService.MapearMovimiento: tdoc/nid/apl*/nom*/raz/dir/dpto/mun/pais
-    // se llenan desde Cliente).
-    private static readonly HashSet<string> CodigosCliente = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "MOV-TDOC", "MOV-NID", "MOV-DV", "MOV-NOMBRES", "MOV-RAZ", "MOV-TITULAR", "MOV-DIR",
-        "MOV-DPTO", "MOV-MUN", "MOV-PAIS", "HOMOLOGACION",
-    };
-
-    // El resto de códigos MOV-* corresponden a un campo de Datos_Financieros (cuenta/saldos/movimientos).
-    private static readonly HashSet<string> CodigosDatoFinanciero = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "MOV-CTA", "MOV-TIPCTA", "MOV-CODEX", "MOV-SAL", "MOV-PSALDOF", "MOV-MEDDIA", "MOV-SMAX",
-        "MOV-SMIN", "MOV-VCRED", "MOV-MOVCRE", "MOV-PROCRE", "MOV-MEDCRE", "MOV-VMOVDEB",
-        "MOV-NMOVDEB", "MOV-PORDEB",
-    };
-
     private readonly IFormato1019EnsambladorService _ensamblador;
     private readonly IFormato1019Validator _validator;
     private readonly IHomologadorDianService _homologador;
@@ -41,69 +23,49 @@ public class Formato1019ErrorExportService : IFormato1019ErrorExportService
         _clientes = clientes;
     }
 
+    /// <summary>
+    /// Un Excel con una fila por cada "línea" (cuenta) del período que no pasó la validación,
+    /// con TODOS los campos del Formato 1019 (los que vienen de Clientes y los que vienen de
+    /// Datos_Financieros) más una columna "Errores". El mismo archivo, ya corregido, se vuelve
+    /// a subir por completo con el endpoint de corregidos (no hace falta separar por tabla).
+    /// </summary>
     public async Task<byte[]> ExportarErroresAsync(int periodoAno, CancellationToken cancellationToken = default)
     {
         var registros = await _ensamblador.EnsamblarAsync(periodoAno, cancellationToken);
 
-        var clientesConError = new Dictionary<Guid, SortedSet<string>>();
-        var cuentasConError = new List<(Guid ClienteId, Guid DatoFinancieroId, SortedSet<string> Errores)>();
-
-        foreach (var registro in registros)
-        {
-            var resultadoValidacion = _validator.ValidarRegistro(registro.Movimiento);
-            var todosLosErrores = registro.ErroresHomologacion
-                .Select(mensaje => new Formato1019ValidationError("HOMOLOGACION", mensaje))
-                .Concat(resultadoValidacion.Errores)
-                .ToList();
-
-            if (todosLosErrores.Count == 0)
-                continue;
-
-            var erroresCliente = todosLosErrores.Where(e => CodigosCliente.Contains(e.Codigo)).Select(e => e.Mensaje).ToList();
-            var erroresCuenta = todosLosErrores.Where(e => CodigosDatoFinanciero.Contains(e.Codigo)).Select(e => e.Mensaje).ToList();
-
-            if (erroresCliente.Count > 0)
-            {
-                if (!clientesConError.TryGetValue(registro.ClienteId, out var conjunto))
-                    clientesConError[registro.ClienteId] = conjunto = new SortedSet<string>();
-
-                foreach (var mensaje in erroresCliente)
-                    conjunto.Add(mensaje);
-            }
-
-            if (erroresCuenta.Count > 0)
-                cuentasConError.Add((registro.ClienteId, registro.DatoFinancieroId, new SortedSet<string>(erroresCuenta)));
-        }
-
         using var libro = new XLWorkbook();
-        await EscribirHojaClientesAsync(libro, clientesConError, cancellationToken);
-        await EscribirHojaDatosFinancierosAsync(libro, cuentasConError, cancellationToken);
-
-        using var stream = new MemoryStream();
-        libro.SaveAs(stream);
-        return stream.ToArray();
-    }
-
-    private async Task EscribirHojaClientesAsync(
-        XLWorkbook libro, Dictionary<Guid, SortedSet<string>> clientesConError, CancellationToken cancellationToken)
-    {
-        var hoja = libro.Worksheets.Add("Clientes");
+        var hoja = libro.Worksheets.Add("Errores_F1019");
         string[] columnas =
         {
-            "TipoDocumento", "NumeroDocumento", "RazonSocial", "PrimerNombre", "SegundoNombre",
+            "NumeroDocumento", "TipoDocumento", "RazonSocial", "PrimerNombre", "SegundoNombre",
             "PrimerApellido", "SegundoApellido", "FechaNacimiento", "Direccion", "Telefono",
-            "CorreoElectronico", "CodigoPais", "CodigoDepartamento", "CodigoMunicipio",
-            "DigitoVerificacion", "Errores",
+            "CorreoElectronico", "CodigoPais", "CodigoDepartamento", "CodigoMunicipio", "DigitoVerificacion",
+            "TipoProducto", "Entidad", "Observaciones", "PeriodoAno", "NumeroCuenta", "TipoCuenta",
+            "CodigoExencion", "Saldo", "IngresosAnuales", "EgresosAnuales", "Activos", "Pasivos",
+            "Patrimonio", "PromedioSaldoFinal", "MedianaSaldoDiario", "SaldoMaximo", "SaldoMinimo",
+            "ValorMovCredito", "NumMovCredito", "PromedioMovCredito", "MedianaMovCredito",
+            "ValorMovDebito", "NumMovDebito", "PromedioMovDebito", "Errores",
         };
         for (var i = 0; i < columnas.Length; i++)
             hoja.Cell(1, i + 1).Value = columnas[i];
 
         var fila = 2;
-        foreach (var (clienteId, errores) in clientesConError)
+        foreach (var registro in registros)
         {
+            var resultadoValidacion = _validator.ValidarRegistro(registro.Movimiento);
+            var errores = registro.ErroresHomologacion
+                .Concat(resultadoValidacion.Errores.Select(e => e.Mensaje))
+                .Distinct()
+                .ToList();
+
+            if (errores.Count == 0)
+                continue;
+
             var cliente = await _clientes.Clientes.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.ClienteId == clienteId, cancellationToken);
-            if (cliente is null)
+                .FirstOrDefaultAsync(c => c.ClienteId == registro.ClienteId, cancellationToken);
+            var datoFinanciero = await _clientes.DatosFinancieros.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.DatoFinancieroId == registro.DatoFinancieroId, cancellationToken);
+            if (cliente is null || datoFinanciero is null)
                 continue;
 
             // El código DIAN se reconstruye a partir del Id interno del cliente (inverso del
@@ -112,8 +74,8 @@ public class Formato1019ErrorExportService : IFormato1019ErrorExportService
             var homologacion = await _homologador.HomologarAsync(cliente.PaisId, cliente.DepartamentoId, cliente.MunicipioId, cancellationToken);
 
             var columna = 1;
-            SetCell(hoja, fila, columna++, cliente.TipoDocumento);
             SetCell(hoja, fila, columna++, cliente.NumeroDocumento);
+            SetCell(hoja, fila, columna++, cliente.TipoDocumento);
             SetCell(hoja, fila, columna++, cliente.RazonSocial);
             SetCell(hoja, fila, columna++, cliente.PrimerNombre);
             SetCell(hoja, fila, columna++, cliente.SegundoNombre);
@@ -127,42 +89,6 @@ public class Formato1019ErrorExportService : IFormato1019ErrorExportService
             SetCell(hoja, fila, columna++, homologacion.CodigoDepartamento?.ToString("D2"));
             SetCell(hoja, fila, columna++, homologacion.CodigoMunicipio?.ToString("D3"));
             SetCell(hoja, fila, columna++, cliente.DigitoVerificacion);
-            SetCell(hoja, fila, columna, string.Join(" | ", errores));
-
-            fila++;
-        }
-    }
-
-    private async Task EscribirHojaDatosFinancierosAsync(
-        XLWorkbook libro,
-        List<(Guid ClienteId, Guid DatoFinancieroId, SortedSet<string> Errores)> cuentasConError,
-        CancellationToken cancellationToken)
-    {
-        var hoja = libro.Worksheets.Add("DatosFinancieros");
-        string[] columnas =
-        {
-            "NumeroDocumentoCliente", "TipoProducto", "Entidad", "Observaciones", "PeriodoAno",
-            "NumeroCuenta", "TipoCuenta", "CodigoExencion", "Saldo", "IngresosAnuales",
-            "EgresosAnuales", "Activos", "Pasivos", "Patrimonio", "PromedioSaldoFinal",
-            "MedianaSaldoDiario", "SaldoMaximo", "SaldoMinimo", "ValorMovCredito", "NumMovCredito",
-            "PromedioMovCredito", "MedianaMovCredito", "ValorMovDebito", "NumMovDebito",
-            "PromedioMovDebito", "Errores",
-        };
-        for (var i = 0; i < columnas.Length; i++)
-            hoja.Cell(1, i + 1).Value = columnas[i];
-
-        var fila = 2;
-        foreach (var (clienteId, datoFinancieroId, errores) in cuentasConError)
-        {
-            var datoFinanciero = await _clientes.DatosFinancieros.AsNoTracking()
-                .FirstOrDefaultAsync(d => d.DatoFinancieroId == datoFinancieroId, cancellationToken);
-            var cliente = await _clientes.Clientes.AsNoTracking()
-                .FirstOrDefaultAsync(c => c.ClienteId == clienteId, cancellationToken);
-            if (datoFinanciero is null || cliente is null)
-                continue;
-
-            var columna = 1;
-            SetCell(hoja, fila, columna++, cliente.NumeroDocumento);
             SetCell(hoja, fila, columna++, datoFinanciero.TipoProducto);
             SetCell(hoja, fila, columna++, datoFinanciero.Entidad);
             SetCell(hoja, fila, columna++, datoFinanciero.Observaciones);
@@ -191,6 +117,10 @@ public class Formato1019ErrorExportService : IFormato1019ErrorExportService
 
             fila++;
         }
+
+        using var stream = new MemoryStream();
+        libro.SaveAs(stream);
+        return stream.ToArray();
     }
 
     private static void SetCell(IXLWorksheet hoja, int fila, int columna, object? valor)

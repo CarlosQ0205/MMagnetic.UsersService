@@ -136,21 +136,17 @@ public class Formato1019ErrorExportServiceTests
         contenido.Should().NotBeEmpty();
 
         using var libro = new XLWorkbook(new MemoryStream(contenido));
-        var hojaDatos = libro.Worksheet("DatosFinancieros");
+        var hoja = libro.Worksheet("Errores_F1019");
 
         // Encabezados presentes.
-        hojaDatos.Cell(1, 1).GetString().Should().Be("NumeroDocumentoCliente");
-        hojaDatos.Cell(1, 26).GetString().Should().Be("Errores");
+        hoja.Cell(1, 1).GetString().Should().Be("NumeroDocumento");
+        hoja.Cell(1, 40).GetString().Should().Be("Errores");
 
-        // La fila 2 trae la línea completa de esa cuenta, no solo el dato que falló.
-        hojaDatos.Cell(2, 1).GetString().Should().Be("123456789"); // NumeroDocumentoCliente
-        hojaDatos.Cell(2, 6).GetString().Should().Be("1234567890"); // NumeroCuenta
-        hojaDatos.Cell(2, 9).GetValue<decimal>().Should().Be(1_000_000); // Saldo
-        hojaDatos.Cell(2, 26).GetString().Should().Contain("codex");
-
-        // El cliente no tenía errores propios, así que no debe aparecer en la hoja de Clientes.
-        var hojaClientes = libro.Worksheet("Clientes");
-        hojaClientes.RowsUsed().Should().ContainSingle(); // solo el encabezado
+        // La fila 2 trae la línea completa (cliente + cuenta) de esa cuenta, no solo el dato que falló.
+        hoja.Cell(2, 1).GetString().Should().Be("123456789"); // NumeroDocumento
+        hoja.Cell(2, 20).GetString().Should().Be("1234567890"); // NumeroCuenta
+        hoja.Cell(2, 23).GetValue<decimal>().Should().Be(1_000_000); // Saldo
+        hoja.Cell(2, 40).GetString().Should().Contain("codex");
     }
 
     [Fact]
@@ -168,13 +164,14 @@ public class Formato1019ErrorExportServiceTests
         var contenido = await servicio.ExportarErroresAsync(PeriodoAno);
 
         using var libro = new XLWorkbook(new MemoryStream(contenido));
-        var hojaClientes = libro.Worksheet("Clientes");
+        var hoja = libro.Worksheet("Errores_F1019");
 
-        hojaClientes.Cell(2, 2).GetString().Should().Be("987654321"); // NumeroDocumento
-        hojaClientes.Cell(2, 12).GetString().Should().Be("169"); // CodigoPais con ceros a la izquierda
-        hojaClientes.Cell(2, 13).GetString().Should().Be("05");  // CodigoDepartamento con cero a la izquierda
-        hojaClientes.Cell(2, 14).GetString().Should().Be("001"); // CodigoMunicipio con ceros a la izquierda
-        hojaClientes.Cell(2, 16).GetString().Should().Contain("titular");
+        hoja.Cell(2, 1).GetString().Should().Be("987654321"); // NumeroDocumento
+        hoja.Cell(2, 12).GetString().Should().Be("169"); // CodigoPais con ceros a la izquierda
+        hoja.Cell(2, 13).GetString().Should().Be("05");  // CodigoDepartamento con cero a la izquierda
+        hoja.Cell(2, 14).GetString().Should().Be("001"); // CodigoMunicipio con ceros a la izquierda
+        hoja.Cell(2, 20).GetString().Should().Be("9999999999"); // NumeroCuenta (misma línea trae también la cuenta)
+        hoja.Cell(2, 40).GetString().Should().Contain("titular");
     }
 
     [Fact]
@@ -191,7 +188,6 @@ public class Formato1019ErrorExportServiceTests
         var contenido = await servicio.ExportarErroresAsync(PeriodoAno);
 
         using var libro = new XLWorkbook(new MemoryStream(contenido));
-        libro.Worksheet("Clientes").RowsUsed().Should().ContainSingle();
-        libro.Worksheet("DatosFinancieros").RowsUsed().Should().ContainSingle();
+        libro.Worksheet("Errores_F1019").RowsUsed().Should().ContainSingle();
     }
 }

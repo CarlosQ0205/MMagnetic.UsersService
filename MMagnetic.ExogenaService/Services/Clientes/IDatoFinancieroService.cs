@@ -16,4 +16,7 @@ public interface IDatoFinancieroService
     /// y período, lo actualiza en vez de duplicarlo (soporta recargar un archivo corregido).
     /// </summary>
     Task<ResultadoCargaMasiva> CargarMasivoAsync(IFormFile archivo, CancellationToken cancellationToken = default);
+
+    /// <summary>Igual upsert que usa CargarMasivoAsync, pero para una sola fila ya parseada.</summary>
+    Task<ResultadoOperacion<DatoFinanciero>> CrearOActualizarAsync(DatoFinancieroDto dto, CancellationToken cancellationToken = default);
 }

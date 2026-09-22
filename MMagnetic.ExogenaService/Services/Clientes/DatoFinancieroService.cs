@@ -113,7 +113,7 @@ public class DatoFinancieroService : IDatoFinancieroService
                 PromedioMovDebito = ObtenerDecimal(fila, "PromedioMovDebito"),
             };
 
-            var resultadoFila = await CrearOActualizarPorLoteAsync(dto, cancellationToken);
+            var resultadoFila = await CrearOActualizarAsync(dto, cancellationToken);
             if (resultadoFila.Exitoso)
                 exitosas++;
             else
@@ -123,7 +123,7 @@ public class DatoFinancieroService : IDatoFinancieroService
         return new ResultadoCargaMasiva { TotalFilas = filas.Count, Exitosas = exitosas, Errores = errores };
     }
 
-    private async Task<ResultadoOperacion<DatoFinanciero>> CrearOActualizarPorLoteAsync(DatoFinancieroDto dto, CancellationToken cancellationToken)
+    public async Task<ResultadoOperacion<DatoFinanciero>> CrearOActualizarAsync(DatoFinancieroDto dto, CancellationToken cancellationToken = default)
     {
         var (errores, clienteId) = await ValidarAsync(dto, cancellationToken);
         if (errores.Count > 0)

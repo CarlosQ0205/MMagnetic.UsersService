@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.ExogenaService.Data;
+using MMagnetic.ExogenaService.Models.Dto;
 using MMagnetic.ExogenaService.Models.Formatos;
 using MMagnetic.ExogenaService.Services.Formato1019;
 
@@ -16,6 +17,7 @@ public class Formato1019Controller : ControllerBase
     private readonly IFormato1019ClasificadorService _clasificador;
     private readonly IFormato1019ExportService _exportador;
     private readonly IFormato1019ErrorExportService _exportadorErrores;
+    private readonly IFormato1019CorreccionService _correccion;
     private readonly FormatosDbContext _formatos;
     private readonly ClientesDbContext _clientes;
 
@@ -23,12 +25,14 @@ public class Formato1019Controller : ControllerBase
         IFormato1019ClasificadorService clasificador,
         IFormato1019ExportService exportador,
         IFormato1019ErrorExportService exportadorErrores,
+        IFormato1019CorreccionService correccion,
         FormatosDbContext formatos,
         ClientesDbContext clientes)
     {
         _clasificador = clasificador;
         _exportador = exportador;
         _exportadorErrores = exportadorErrores;
+        _correccion = correccion;
         _formatos = formatos;
         _clientes = clientes;
     }
@@ -91,6 +95,14 @@ public class Formato1019Controller : ControllerBase
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"errores_formato1019_{periodoAno}.xlsx");
     }
+
+    /// <summary>
+    /// Sube el archivo de corregidos (el mismo formato de "errores/{periodoAno}/exportar", ya
+    /// corregido): por cada fila actualiza el Cliente y el Dato_Financiero correspondientes.
+    /// </summary>
+    [HttpPost("corregidos")]
+    public async Task<ActionResult<ResultadoCargaMasiva>> SubirCorregidos(IFormFile archivo, CancellationToken cancellationToken)
+        => Ok(await _correccion.CargarCorregidosAsync(archivo, cancellationToken));
 
     /// <summary>Registros ya validados y listos para exportar de un período.</summary>
     [HttpGet("definitivo/{periodoAno:int}")]
