@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using MMagnetic.ExogenaService.Data;
-using MMagnetic.ExogenaService.Models.Formato1019;
 using MMagnetic.ExogenaService.Models.Formatos;
 
 namespace MMagnetic.ExogenaService.Services.Formato1019;
@@ -36,7 +35,7 @@ public class Formato1019ClasificadorService : IFormato1019ClasificadorService
 
         foreach (var registro in registros)
         {
-            var conceptos = ObtenerConceptos(registro.Movimiento)
+            var conceptos = Formato1019ConceptoExtractor.ObtenerConceptos(registro.Movimiento)
                 .Select(c => new Formato1019Concepto
                 {
                     Formato1019Id = Guid.NewGuid(),
@@ -136,28 +135,5 @@ public class Formato1019ClasificadorService : IFormato1019ClasificadorService
         _formatos.Formato1019.RemoveRange(_formatos.Formato1019.Where(f => f.PeriodoAno == periodoAno));
 
         await _formatos.SaveChangesAsync(cancellationToken);
-    }
-
-    private static IEnumerable<(string Codigo, decimal Valor)> ObtenerConceptos(MovimientoCuenta mov)
-    {
-        yield return ("tdoc", mov.Tdoc);
-        if (mov.DvSpecified) yield return ("dv", mov.Dv);
-        if (mov.DptoSpecified) yield return ("dpto", mov.Dpto);
-        if (mov.MunSpecified) yield return ("mun", mov.Mun);
-        if (mov.PaisSpecified) yield return ("pais", mov.Pais);
-        yield return ("tipcta", mov.TipCta);
-        yield return ("codex", mov.Codex);
-        yield return ("sal", mov.Sal);
-        yield return ("psaldof", mov.PSaldoF);
-        yield return ("meddia", mov.MedDia);
-        yield return ("smax", mov.SMax);
-        yield return ("smin", mov.SMin);
-        yield return ("vcred", mov.VCred);
-        yield return ("movcre", mov.MovCre);
-        yield return ("procre", mov.ProCre);
-        yield return ("medcre", mov.MedCre);
-        yield return ("vmovdeb", mov.VMovDeb);
-        yield return ("nmovdeb", mov.NMovDeb);
-        yield return ("pordeb", mov.PorDeb);
     }
 }

@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -121,25 +122,30 @@ public class Formato1019Controller : ControllerBase
     }
 
     /// <summary>
-    /// Genera el archivo XML final para la DIAN a partir de F_1019_Definitivo. Corre una
-    /// validación completa del lote antes de generarlo (incluida la llave única entre
-    /// registros de distintos clientes, que no se valida durante la clasificación).
+    /// Genera F_1019_Definitivo del período como uno o varios archivos XML (máximo 5000
+    /// "movcta" por archivo, el límite del Anexo 2), comprimidos en un .zip listo para pasar
+    /// por el pre-validador de la DIAN. Corre una validación completa de cada lote antes de
+    /// generarlo (incluida la llave única entre registros, que no se valida al clasificar).
     /// </summary>
-    [HttpGet("exportar/{periodoAno:int}")]
-    public async Task<IActionResult> Exportar(
-        int periodoAno,
-        [FromQuery] int numEnvio,
-        [FromQuery] int codCpt,
-        [FromQuery] DateTime fecInicial,
-        [FromQuery] DateTime fecFinal,
-        CancellationToken cancellationToken)
+    [HttpGet("definitivo/{periodoAno:int}/lotes/xml")]
+    public async Task<IActionResult> ExportarLotesXml(int periodoAno, CancellationToken cancellationToken)
     {
-        var resultado = await _exportador.GenerarXmlAsync(periodoAno, numEnvio, codCpt, fecInicial, fecFinal, cancellationToken);
-
+        var resultado = await _exportador.GenerarLotesXmlAsync(periodoAno, cancellationToken);
         if (!resultado.Exitoso)
             return BadRequest(resultado.Errores);
 
-        return File(resultado.ContenidoXml!, "application/xml", resultado.NombreArchivo);
+        return File(ComprimirEnZip(resultado.Archivos!), "application/zip", $"f1019_definitivo_{periodoAno}_xml.zip");
+    }
+
+    /// <summary>Igual que el de arriba, pero cada archivo del .zip es un .xlsx en vez de un .xml.</summary>
+    [HttpGet("definitivo/{periodoAno:int}/lotes/excel")]
+    public async Task<IActionResult> ExportarLotesExcel(int periodoAno, CancellationToken cancellationToken)
+    {
+        var resultado = await _exportador.GenerarLotesExcelAsync(periodoAno, cancellationToken);
+        if (!resultado.Exitoso)
+            return BadRequest(resultado.Errores);
+
+        return File(ComprimirEnZip(resultado.Archivos!), "application/zip", $"f1019_definitivo_{periodoAno}_excel.zip");
     }
 
     private async Task<List<Formato1019ConceptoDto>> ObtenerStagingDatosAsync(int periodoAno, CancellationToken cancellationToken)
@@ -240,6 +246,22 @@ public class Formato1019Controller : ControllerBase
 
         using var stream = new MemoryStream();
         libro.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static byte[] ComprimirEnZip(IReadOnlyList<ArchivoLote> archivos)
+    {
+        using var stream = new MemoryStream();
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var archivo in archivos)
+            {
+                var entrada = zip.CreateEntry(archivo.NombreArchivo, CompressionLevel.Fastest);
+                using var entradaStream = entrada.Open();
+                entradaStream.Write(archivo.Contenido, 0, archivo.Contenido.Length);
+            }
+        }
+
         return stream.ToArray();
     }
 }
