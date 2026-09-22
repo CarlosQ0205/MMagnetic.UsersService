@@ -114,6 +114,9 @@ public class Formato1019ClasificadorService : IFormato1019ClasificadorService
         return new ResumenClasificacion(registros.Count, validos, conErrores);
     }
 
+    public Task LimpiarAsync(int periodoAno, CancellationToken cancellationToken = default)
+        => LimpiarResultadoAnteriorAsync(periodoAno, cancellationToken);
+
     private async Task LimpiarResultadoAnteriorAsync(int periodoAno, CancellationToken cancellationToken)
     {
         var clienteIdsPeriodoAnterior = await _formatos.Formato1019

@@ -45,6 +45,17 @@ public class Formato1019Controller : ControllerBase
         return Ok(resumen);
     }
 
+    /// <summary>
+    /// Borra el resultado de un período (Formato_1019, Formato_Errores y F_1019_Definitivo) para
+    /// poder rehacer todo el proceso de clasificación desde cero.
+    /// </summary>
+    [HttpDelete("{periodoAno:int}")]
+    public async Task<IActionResult> Limpiar(int periodoAno, CancellationToken cancellationToken)
+    {
+        await _clasificador.LimpiarAsync(periodoAno, cancellationToken);
+        return NoContent();
+    }
+
     /// <summary>Detalle completo (staging) de Formato_1019 para un período: todos los conceptos procesados, hayan pasado o no la validación.</summary>
     [HttpGet("{periodoAno:int}")]
     public async Task<ActionResult<IReadOnlyList<Formato1019ConceptoDto>>> ObtenerStaging(int periodoAno, CancellationToken cancellationToken)
