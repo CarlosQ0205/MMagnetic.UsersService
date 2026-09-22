@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -47,67 +48,28 @@ public class Formato1019Controller : ControllerBase
     /// <summary>Detalle completo (staging) de Formato_1019 para un período: todos los conceptos procesados, hayan pasado o no la validación.</summary>
     [HttpGet("{periodoAno:int}")]
     public async Task<ActionResult<IReadOnlyList<Formato1019ConceptoDto>>> ObtenerStaging(int periodoAno, CancellationToken cancellationToken)
+        => Ok(await ObtenerStagingDatosAsync(periodoAno, cancellationToken));
+
+    /// <summary>Descarga en .xlsx el detalle completo (staging) de Formato_1019 de un período.</summary>
+    [HttpGet("{periodoAno:int}/exportar")]
+    public async Task<IActionResult> ExportarStaging(int periodoAno, CancellationToken cancellationToken)
     {
-        var conceptos = await _formatos.Formato1019
-            .Where(f => f.PeriodoAno == periodoAno)
-            .OrderBy(f => f.ClienteId)
-            .ThenBy(f => f.Linea)
-            .ToListAsync(cancellationToken);
-
-        var clienteIds = conceptos.Select(c => c.ClienteId).Distinct().ToList();
-        var clientesPorId = await _clientes.Clientes
-            .Where(c => clienteIds.Contains(c.ClienteId))
-            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
-
-        var resultado = conceptos.Select(c => new Formato1019ConceptoDto(
-            c.Formato1019Id,
-            c.ClienteId,
-            c.ClienteId.HasValue && clientesPorId.TryGetValue(c.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
-            c.PeriodoAno,
-            c.CodigoConcepto,
-            c.Valor,
-            c.Linea,
-            c.FechaGeneracion)).ToList();
-
-        return Ok(resultado);
+        var datos = await ObtenerStagingDatosAsync(periodoAno, cancellationToken);
+        return File(
+            GenerarExcelConceptos(datos),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"formato1019_{periodoAno}.xlsx");
     }
 
     /// <summary>Errores encontrados en el último proceso de clasificación de un período, con el número de documento del cliente para ubicarlo fácilmente.</summary>
     [HttpGet("errores/{periodoAno:int}")]
     public async Task<ActionResult<IReadOnlyList<ErrorFormato1019Dto>>> ObtenerErrores(int periodoAno, CancellationToken cancellationToken)
-    {
-        var clienteIds = await _formatos.Formato1019
-            .Where(f => f.PeriodoAno == periodoAno)
-            .Select(f => f.ClienteId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
-        var errores = await _formatos.FormatoErrores
-            .Where(e => clienteIds.Contains(e.ClienteId))
-            .OrderBy(e => e.ClienteId)
-            .ToListAsync(cancellationToken);
-
-        var clientesPorId = await _clientes.Clientes
-            .Where(c => clienteIds.Contains(c.ClienteId))
-            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
-
-        var resultado = errores.Select(e => new ErrorFormato1019Dto(
-            e.ErrorId,
-            e.ClienteId,
-            e.ClienteId.HasValue && clientesPorId.TryGetValue(e.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
-            e.CodigoError,
-            e.DescripcionError,
-            e.ValorInvalido,
-            e.Nivel,
-            e.FechaError)).ToList();
-
-        return Ok(resultado);
-    }
+        => Ok(await ObtenerErroresDatosAsync(periodoAno, cancellationToken));
 
     /// <summary>
     /// Descarga en .xlsx la línea completa (no solo el dato puntual) de cada cliente/cuenta
     /// que no pasó la validación de un período, con sus errores, lista para corregir y
-    /// volver a subir por los mismos endpoints de carga masiva.
+    /// volver a subir por los mismos endpoints de carga masiva (Clientes / Datos financieros).
     /// </summary>
     [HttpGet("errores/{periodoAno:int}/exportar")]
     public async Task<IActionResult> ExportarErrores(int periodoAno, CancellationToken cancellationToken)
@@ -122,29 +84,17 @@ public class Formato1019Controller : ControllerBase
     /// <summary>Registros ya validados y listos para exportar de un período.</summary>
     [HttpGet("definitivo/{periodoAno:int}")]
     public async Task<ActionResult<IReadOnlyList<Formato1019ConceptoDto>>> ObtenerDefinitivo(int periodoAno, CancellationToken cancellationToken)
+        => Ok(await ObtenerDefinitivoDatosAsync(periodoAno, cancellationToken));
+
+    /// <summary>Descarga en .xlsx los registros de F_1019_Definitivo de un período.</summary>
+    [HttpGet("definitivo/{periodoAno:int}/exportar")]
+    public async Task<IActionResult> ExportarDefinitivo(int periodoAno, CancellationToken cancellationToken)
     {
-        var registros = await _formatos.Formato1019Definitivo
-            .Where(f => f.PeriodoAno == periodoAno)
-            .OrderBy(f => f.ClienteId)
-            .ThenBy(f => f.Linea)
-            .ToListAsync(cancellationToken);
-
-        var clienteIds = registros.Select(r => r.ClienteId).Distinct().ToList();
-        var clientesPorId = await _clientes.Clientes
-            .Where(c => clienteIds.Contains(c.ClienteId))
-            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
-
-        var resultado = registros.Select(r => new Formato1019ConceptoDto(
-            r.Formato1019DefinitivoId,
-            r.ClienteId,
-            r.ClienteId.HasValue && clientesPorId.TryGetValue(r.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
-            r.PeriodoAno,
-            r.CodigoConcepto,
-            r.Valor,
-            r.Linea,
-            r.FechaGeneracion)).ToList();
-
-        return Ok(resultado);
+        var datos = await ObtenerDefinitivoDatosAsync(periodoAno, cancellationToken);
+        return File(
+            GenerarExcelConceptos(datos),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            $"f1019_definitivo_{periodoAno}.xlsx");
     }
 
     /// <summary>
@@ -167,5 +117,106 @@ public class Formato1019Controller : ControllerBase
             return BadRequest(resultado.Errores);
 
         return File(resultado.ContenidoXml!, "application/xml", resultado.NombreArchivo);
+    }
+
+    private async Task<List<Formato1019ConceptoDto>> ObtenerStagingDatosAsync(int periodoAno, CancellationToken cancellationToken)
+    {
+        var conceptos = await _formatos.Formato1019
+            .Where(f => f.PeriodoAno == periodoAno)
+            .OrderBy(f => f.ClienteId)
+            .ThenBy(f => f.Linea)
+            .ToListAsync(cancellationToken);
+
+        var clienteIds = conceptos.Select(c => c.ClienteId).Distinct().ToList();
+        var clientesPorId = await _clientes.Clientes
+            .Where(c => clienteIds.Contains(c.ClienteId))
+            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
+
+        return conceptos.Select(c => new Formato1019ConceptoDto(
+            c.Formato1019Id,
+            c.ClienteId,
+            c.ClienteId.HasValue && clientesPorId.TryGetValue(c.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
+            c.PeriodoAno,
+            c.CodigoConcepto,
+            c.Valor,
+            c.Linea,
+            c.FechaGeneracion)).ToList();
+    }
+
+    private async Task<List<ErrorFormato1019Dto>> ObtenerErroresDatosAsync(int periodoAno, CancellationToken cancellationToken)
+    {
+        var clienteIds = await _formatos.Formato1019
+            .Where(f => f.PeriodoAno == periodoAno)
+            .Select(f => f.ClienteId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var errores = await _formatos.FormatoErrores
+            .Where(e => clienteIds.Contains(e.ClienteId))
+            .OrderBy(e => e.ClienteId)
+            .ToListAsync(cancellationToken);
+
+        var clientesPorId = await _clientes.Clientes
+            .Where(c => clienteIds.Contains(c.ClienteId))
+            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
+
+        return errores.Select(e => new ErrorFormato1019Dto(
+            e.ErrorId,
+            e.ClienteId,
+            e.ClienteId.HasValue && clientesPorId.TryGetValue(e.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
+            e.CodigoError,
+            e.DescripcionError,
+            e.ValorInvalido,
+            e.Nivel,
+            e.FechaError)).ToList();
+    }
+
+    private async Task<List<Formato1019ConceptoDto>> ObtenerDefinitivoDatosAsync(int periodoAno, CancellationToken cancellationToken)
+    {
+        var registros = await _formatos.Formato1019Definitivo
+            .Where(f => f.PeriodoAno == periodoAno)
+            .OrderBy(f => f.ClienteId)
+            .ThenBy(f => f.Linea)
+            .ToListAsync(cancellationToken);
+
+        var clienteIds = registros.Select(r => r.ClienteId).Distinct().ToList();
+        var clientesPorId = await _clientes.Clientes
+            .Where(c => clienteIds.Contains(c.ClienteId))
+            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
+
+        return registros.Select(r => new Formato1019ConceptoDto(
+            r.Formato1019DefinitivoId,
+            r.ClienteId,
+            r.ClienteId.HasValue && clientesPorId.TryGetValue(r.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
+            r.PeriodoAno,
+            r.CodigoConcepto,
+            r.Valor,
+            r.Linea,
+            r.FechaGeneracion)).ToList();
+    }
+
+    private static byte[] GenerarExcelConceptos(IReadOnlyList<Formato1019ConceptoDto> conceptos)
+    {
+        using var libro = new XLWorkbook();
+        var hoja = libro.Worksheets.Add("Datos");
+        string[] columnas = { "NumeroDocumentoCliente", "PeriodoAno", "Linea", "CodigoConcepto", "Valor", "FechaGeneracion" };
+        for (var i = 0; i < columnas.Length; i++)
+            hoja.Cell(1, i + 1).Value = columnas[i];
+
+        var fila = 2;
+        foreach (var concepto in conceptos)
+        {
+            hoja.Cell(fila, 1).Value = concepto.NumeroDocumentoCliente;
+            hoja.Cell(fila, 2).Value = concepto.PeriodoAno;
+            hoja.Cell(fila, 3).Value = concepto.Linea;
+            hoja.Cell(fila, 4).Value = concepto.CodigoConcepto;
+            hoja.Cell(fila, 5).Value = concepto.Valor;
+            hoja.Cell(fila, 6).Value = concepto.FechaGeneracion;
+            fila++;
+        }
+
+        using var stream = new MemoryStream();
+        libro.SaveAs(stream);
+        return stream.ToArray();
     }
 }
