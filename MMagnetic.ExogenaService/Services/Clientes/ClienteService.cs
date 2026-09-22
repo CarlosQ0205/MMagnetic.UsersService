@@ -143,6 +143,13 @@ public class ClienteService : IClienteService
         else if (CatalogoTiposDocumento.Mapear(dto.TipoDocumento) is null)
             errores.Add($"TipoDocumento '{dto.TipoDocumento}' no está en el catálogo de tipos de documento conocidos.");
 
+        // Misma regla que exige Formato1019Validator al clasificar (MOV-TITULAR), aplicada
+        // ya desde el alta para no dejar crear un cliente "vacío" sin que nada lo marque.
+        var esPersonaJuridica = !string.IsNullOrWhiteSpace(dto.RazonSocial);
+        var esPersonaNatural = !string.IsNullOrWhiteSpace(dto.PrimerNombre) || !string.IsNullOrWhiteSpace(dto.PrimerApellido);
+        if (!esPersonaJuridica && !esPersonaNatural)
+            errores.Add("Debe diligenciar 'RazonSocial' (persona jurídica) o 'PrimerNombre'/'PrimerApellido' (persona natural).");
+
         if (!string.IsNullOrWhiteSpace(dto.NumeroDocumento) && !string.IsNullOrWhiteSpace(dto.TipoDocumento))
         {
             var existente = await _clientes.Clientes.AsNoTracking()

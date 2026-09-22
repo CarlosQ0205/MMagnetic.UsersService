@@ -44,6 +44,34 @@ public class Formato1019Controller : ControllerBase
         return Ok(resumen);
     }
 
+    /// <summary>Detalle completo (staging) de Formato_1019 para un período: todos los conceptos procesados, hayan pasado o no la validación.</summary>
+    [HttpGet("{periodoAno:int}")]
+    public async Task<ActionResult<IReadOnlyList<Formato1019ConceptoDto>>> ObtenerStaging(int periodoAno, CancellationToken cancellationToken)
+    {
+        var conceptos = await _formatos.Formato1019
+            .Where(f => f.PeriodoAno == periodoAno)
+            .OrderBy(f => f.ClienteId)
+            .ThenBy(f => f.Linea)
+            .ToListAsync(cancellationToken);
+
+        var clienteIds = conceptos.Select(c => c.ClienteId).Distinct().ToList();
+        var clientesPorId = await _clientes.Clientes
+            .Where(c => clienteIds.Contains(c.ClienteId))
+            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
+
+        var resultado = conceptos.Select(c => new Formato1019ConceptoDto(
+            c.Formato1019Id,
+            c.ClienteId,
+            c.ClienteId.HasValue && clientesPorId.TryGetValue(c.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
+            c.PeriodoAno,
+            c.CodigoConcepto,
+            c.Valor,
+            c.Linea,
+            c.FechaGeneracion)).ToList();
+
+        return Ok(resultado);
+    }
+
     /// <summary>Errores encontrados en el último proceso de clasificación de un período, con el número de documento del cliente para ubicarlo fácilmente.</summary>
     [HttpGet("errores/{periodoAno:int}")]
     public async Task<ActionResult<IReadOnlyList<ErrorFormato1019Dto>>> ObtenerErrores(int periodoAno, CancellationToken cancellationToken)
@@ -93,7 +121,7 @@ public class Formato1019Controller : ControllerBase
 
     /// <summary>Registros ya validados y listos para exportar de un período.</summary>
     [HttpGet("definitivo/{periodoAno:int}")]
-    public async Task<ActionResult<IReadOnlyList<Formato1019Definitivo>>> ObtenerDefinitivo(int periodoAno, CancellationToken cancellationToken)
+    public async Task<ActionResult<IReadOnlyList<Formato1019ConceptoDto>>> ObtenerDefinitivo(int periodoAno, CancellationToken cancellationToken)
     {
         var registros = await _formatos.Formato1019Definitivo
             .Where(f => f.PeriodoAno == periodoAno)
@@ -101,7 +129,22 @@ public class Formato1019Controller : ControllerBase
             .ThenBy(f => f.Linea)
             .ToListAsync(cancellationToken);
 
-        return Ok(registros);
+        var clienteIds = registros.Select(r => r.ClienteId).Distinct().ToList();
+        var clientesPorId = await _clientes.Clientes
+            .Where(c => clienteIds.Contains(c.ClienteId))
+            .ToDictionaryAsync(c => c.ClienteId, c => c.NumeroDocumento, cancellationToken);
+
+        var resultado = registros.Select(r => new Formato1019ConceptoDto(
+            r.Formato1019DefinitivoId,
+            r.ClienteId,
+            r.ClienteId.HasValue && clientesPorId.TryGetValue(r.ClienteId.Value, out var numeroDocumento) ? numeroDocumento : null,
+            r.PeriodoAno,
+            r.CodigoConcepto,
+            r.Valor,
+            r.Linea,
+            r.FechaGeneracion)).ToList();
+
+        return Ok(resultado);
     }
 
     /// <summary>

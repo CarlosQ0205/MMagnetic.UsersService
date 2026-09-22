@@ -57,6 +57,40 @@ public class ClienteServiceTests
     }
 
     [Fact]
+    public async Task Rechaza_cliente_sin_nombre_ni_razon_social()
+    {
+        using var clientesDb = CrearClientesDbContext(nameof(Rechaza_cliente_sin_nombre_ni_razon_social));
+        using var dianDb = CrearDianDbContext(nameof(Rechaza_cliente_sin_nombre_ni_razon_social) + "-dian");
+        var servicio = new ClienteService(clientesDb, new ResolutorCatalogoDianService(dianDb), new ArchivoTabularReader());
+
+        var dto = DtoValido();
+        dto.PrimerNombre = null;
+        dto.PrimerApellido = null;
+
+        var resultado = await servicio.CrearAsync(dto);
+
+        resultado.Exitoso.Should().BeFalse();
+        resultado.Errores.Should().Contain(e => e.Contains("RazonSocial"));
+    }
+
+    [Fact]
+    public async Task Acepta_persona_juridica_solo_con_razon_social()
+    {
+        using var clientesDb = CrearClientesDbContext(nameof(Acepta_persona_juridica_solo_con_razon_social));
+        using var dianDb = CrearDianDbContext(nameof(Acepta_persona_juridica_solo_con_razon_social) + "-dian");
+        var servicio = new ClienteService(clientesDb, new ResolutorCatalogoDianService(dianDb), new ArchivoTabularReader());
+
+        var dto = DtoValido();
+        dto.PrimerNombre = null;
+        dto.PrimerApellido = null;
+        dto.RazonSocial = "Empresa SAS";
+
+        var resultado = await servicio.CrearAsync(dto);
+
+        resultado.Exitoso.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Rechaza_tipo_de_documento_desconocido()
     {
         using var clientesDb = CrearClientesDbContext(nameof(Rechaza_tipo_de_documento_desconocido));
